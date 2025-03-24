@@ -1,41 +1,42 @@
 from qgis.core import *
+import processing
 
+# Initialize QGIS
 qgs = QgsApplication([], False)
 qgs.initQgis()
 
-# import processing *after* initializing the application
-import processing
+# Load processing algorithms
 from processing.core.Processing import Processing
 Processing.initialize()
+QgsApplication.processingRegistry().providerById('grass').loadAlgorithms()
 
-from scripts.proximity import Proximity
+# Check if GRASS provider is available
+providers = [p.id() for p in QgsApplication.processingRegistry().providers()]
+if 'grass' not in providers:
+    raise RuntimeError("GRASS provider is not loaded.")
 
-# I load the VectorLayer in code and pass it as an argument; obviously you could also just pass the
-# file name to 'INPUT'. This is just a demonstration that you can have full control over the input
-# layer before you send it off to the processing script
+# Load the DEM raster
+raster_path = r'test/test_DEM.tif'
+raster_layer = QgsRasterLayer(raster_path, 'Elevation DEM')
+if not raster_layer.isValid():
+    raise FileNotFoundError(f"Raster could not be loaded. Check the file path: {raster_path}")
 
-inLayer = QgsVectorLayer('test/nl_airports.osm|layername=multipolygons')
-if not inLayer.isValid():
-    raise Exception("Layer failed to load!")
+print(f"Raster loaded successfully. CRS: {raster_layer.crs().authid()}")
 
-# Create the Proximity algorithm
-alg = Proximity()
+# Define output paths for slope and aspect
+slope_raster = r'test/slope.tif'
+aspect_raster = r'test/aspect.tif'
 
-# Set the params needed for this algorithm
-params = {
-	'INPUT': inLayer,
-	'DISTANCE': 10000, # in meters
-	'OUTPUT': 'test/rasterized.tif'
-}
+# Compute slope and aspect using r.slope.aspect
+processing.run('grass:r.slope.aspect', {
+    'elevation': raster_path,
+    'slope': slope_raster,
+    'aspect': aspect_raster
+})
 
-# Run the algorithm as you would from inside the QGIS GUI
-alg.initAlgorithm()
-ctx = QgsProcessingContext()
-feedback = QgsProcessingFeedback()
-alg.prepareAlgorithm(params, ctx, feedback)
-alg.processAlgorithm(params, ctx, feedback)
+print(f"Slope raster saved at: {slope_raster}")
+print(f"Aspect raster saved at: {aspect_raster}")
+print("Processing completed")
 
-# All done
-print("Done")
-
+# Close QGIS session
 qgs.exitQgis()
