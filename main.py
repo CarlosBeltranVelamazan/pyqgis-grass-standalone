@@ -15,6 +15,11 @@ providers = [p.id() for p in QgsApplication.processingRegistry().providers()]
 if 'grass' not in providers:
     raise RuntimeError("GRASS provider is not loaded.")
 
+# List all available algorithms in the processing registry
+algorithms = QgsApplication.processingRegistry().algorithms()
+available_algorithms = [alg.id() for alg in algorithms]
+print("Available algorithms:", available_algorithms)
+
 # Load the DEM raster
 raster_path = r'test/test_DEM.tif'
 raster_layer = QgsRasterLayer(raster_path, 'Elevation DEM')
